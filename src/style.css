@@ -1,0 +1,56 @@
+@import url('@picocss/pico/css/pico.fluid.classless.min.css');
+@import url('@fontsource-variable/fira-code');
+
+:root {
+  --pico-font-family: 'Fira Code Variable';
+  --pico-font-size: 75%;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  display: grid;
+  grid-template-rows: auto 1fr;
+}
+
+header {
+  user-select: none;
+}
+
+nav {
+  padding: var(--pico-spacing);
+}
+
+nav img {
+  width: 6rem;
+}
+
+hgroup {
+  margin-bottom: 0;
+}
+
+h1 {
+  --pico-color: forestgreen;
+
+  letter-spacing: 0.5rem;
+}
+
+main {
+  display: grid;
+}
+
+article {
+  display: grid;
+  grid-template-rows: 1fr auto;
+}
+
+article > #editor {
+  display: grid;
+}
+
+article > footer {
+  text-align: right;
+}

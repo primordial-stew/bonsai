@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Bonsai</title>
+    <link rel="icon" href="/favicon.png" />
+    <link rel="stylesheet" href="src/style.css" />
+    <script type="module" src="src/main.ts"></script>
+  </head>
+
+  <body>
+    <header>
+      <nav>
+        <ul>
+          <li>
+            <img src="/favicon.png" alt="" />
+          </li>
+          <li>
+            <hgroup>
+              <h1>&lt;bonsai&gt;</h1>
+              <p>web-based relational programming</p>
+            </hgroup>
+          </li>
+        </ul>
+        <ul>
+          <li>
+            <button id="run" type="button">▶ run</button>
+          </li>
+        </ul>
+      </nav>
+    </header>
+    <main>
+      <article>
+        <div id="editor"></div>
+        <footer>
+          <output id="pos"></output>
+        </footer>
+      </article>
+    </main>
+  </body>
+</html>
