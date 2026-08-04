@@ -10,160 +10,92 @@ interface Output {
   error?: ParseError
 }
 
-const { array, constant, constantFrom, integer, nat, oneof, tuple } = fc
-const { fromCodePoint } = String
+const { constant, constantFrom, integer, nat, oneof, string, tuple } = fc
 
-function code(char: string): number {
-  const codePoint = char.codePointAt(0)
-  if (codePoint === undefined) {
-    throw new Error(`Invalid code point for "${char}"`)
-  }
-  return codePoint
+function textFrom(chars: string, minLength: number = 0) {
+  return string({ unit: charFrom(chars), minLength })
 }
 
-const digitCode = integer({ min: code('0'), max: code('9') })
-const upperCode = integer({ min: code('A'), max: code('Z') })
-const lowerCode = integer({ min: code('a'), max: code('z') })
-const underscoreCode = constant(code('_'))
+function charFrom(chars: string) {
+  return constantFrom(...chars)
+}
 
-function between(min: number, max: number) {
-  return integer({ min, max })
+function charOf(unit: string) {
+  return string({ unit, minLength: 1, maxLength: 1 })
+}
+
+function charBetween(min: number, max: number) {
+  return integer({ min, max }).map(String.fromCharCode)
+}
+
+function expr(kind: string, value: string | number, line: number, col: number) {
+  return {
+    value: { token: { kind, value, pos: { line, col } } },
+  }
+}
+
+function error(code: string, line: number, col: number) {
+  return {
+    error: { code, pos: { line, col } },
+  }
 }
 
 describe<string, Output>((source) => parse(source), {
-  empty: test(constant(undefined), () => ({
-    given: '',
-    expect: {
-      error: {
-        code: 'INVALID_EXPR',
-        pos: { line: 1, col: 1 },
-      },
-    },
+  empty: test(constant(''), (value) => ({
+    given: value,
+    expect: error('invalid_expr', 1, 1),
   })),
   newline: test(
-    tuple(
-      constant(code('\n')),
-      array(constant(code('\t')), { minLength: 1 }),
-    ).map(([first, rest]) => fromCodePoint(...[first, ...rest])),
+    textFrom('\t').map((value) => `\n${value}`),
     (value) => ({
       given: value,
-      expect: {
-        error: {
-          code: 'INVALID_EXPR',
-          pos: { line: 1, col: 1 },
-        },
-      },
+      expect: error('invalid_expr', 1, 1),
     }),
   ),
-  space: test(
-    array(constantFrom(code('\t'), code(' ')), { minLength: 1 }).map((value) =>
-      fromCodePoint(...value),
-    ),
-    (value) => ({
-      given: value,
-      expect: {
-        error: {
-          code: 'INVALID_EXPR',
-          pos: { line: 1, col: 1 },
-        },
-      },
-    }),
-  ),
-  punct: test(
-    array(
-      constantFrom(
-        code('!'),
-        code('%'),
-        code('&'),
-        code('*'),
-        code('+'),
-        code('-'),
-        code('.'),
-        code('/'),
-        code(':'),
-        code(';'),
-        code('<'),
-        code('='),
-        code('>'),
-        code('?'),
-        code('@'),
-        code('^'),
-        code('|'),
-        code('~'),
-      ),
-      { minLength: 1 },
-    ).map((value) => fromCodePoint(...value)),
-    (value) => ({
-      given: value,
-      expect: {
-        value: {
-          token: { kind: 'punct', value, pos: { line: 1, col: 1 } },
-        },
-      },
-    }),
-  ),
+  space: test(textFrom('\t ', 1), (value) => ({
+    given: value,
+    expect: error('invalid_expr', 1, 1),
+  })),
+  punct: test(textFrom('!%&*+--./:;<=>?@^|~', 1), (value) => ({
+    given: value,
+    expect: expr('punct', value, 1, 1),
+  })),
   alnum: test(
     tuple(
-      oneof(upperCode, lowerCode, underscoreCode),
-      array(oneof(digitCode, upperCode, lowerCode, underscoreCode)),
-    ).map(([first, rest]) => fromCodePoint(...[first, ...rest])),
+      charFrom('ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz_'),
+      textFrom(
+        'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz_0123456789',
+      ),
+    ).map(([first, rest]) => `${first}${rest}`),
     (value) => ({
       given: value,
-      expect: {
-        value: {
-          token: { kind: 'alnum', value, pos: { line: 1, col: 1 } },
-        },
-      },
+      expect: expr('alnum', value, 1, 1),
     }),
   ),
   char: test(
-    oneof(between(0, code("'") - 1), between(code("'") + 1, 127)).map(
-      fromCodePoint,
-    ),
+    charOf('binary-ascii').filter((value) => value !== "'"),
     (value) => ({
       given: `'${value}'`,
-      expect: {
-        value: {
-          token: { kind: 'char', value, pos: { line: 1, col: 1 } },
-        },
-      },
+      expect: expr('char', value, 1, 1),
     }),
   ),
   int: test(nat(), (value) => ({
     given: `${value}`,
-    expect: {
-      value: {
-        token: { kind: 'int', value, pos: { line: 1, col: 1 } },
-      },
-    },
+    expect: expr('int', value, 1, 1),
   })),
   invalid: test(
     oneof(
-      between(0, code('\t') - 1),
-      between(code('\n') + 1, 31),
-      constantFrom(
-        code('"'),
-        code('#'),
-        code('$'),
-        code('('),
-        code(')'),
-        code(','),
-        code('['),
-        code('\\'),
-        code(']'),
-        code('`'),
-        code('{'),
-        code('}'),
+      charFrom(
+        '\0\x01\x02\x03\x04\x05\x06\x07\b\v\f\r' +
+          '\x0e\x0f\x10\x11\x12\x13\x14\x15\x16' +
+          '\x17\x18\x19\x1a\x1b\x1c\x1d\x1e\x1f' +
+          '"#$(),[\\]`{}',
       ),
-    ).map(fromCodePoint),
+      charBetween(0x7f, 0x10ffff),
+    ),
     (value) => ({
       given: value,
-      expect: {
-        error: {
-          code: 'INVALID_TOKEN',
-          pos: { line: 1, col: 1 },
-        },
-      },
+      expect: error('invalid_token', 1, 1),
     }),
   ),
 })

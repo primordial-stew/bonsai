@@ -4,6 +4,11 @@ export interface Expression {
   rhs?: Expression
 }
 
+export interface ParseError {
+  code: string
+  pos: Position
+}
+
 interface Handler {
   rank?: number
   regexp?: string
@@ -38,78 +43,73 @@ interface Position {
   col: number
 }
 
-interface ParseError {
-  code: string
-  pos: Position
-}
-
 const handlers: Record<string, Handler> = {
-  indent: {
-    rank: 3,
-    parse({ stack }, token) {
-      stack.push(token)
-    },
-  },
-  dedent: {
-    rank: 3,
-    parse(parser, token) {
-      const { stack } = parser
-      const { value, pos } = token
-      if (typeof value !== 'number') {
-        throw new Error(`Invalid dedent token at "${JSON.stringify(pos)}"`)
-      }
-      for (let i = 0; i < value; i++) {
-        reduce(parser, 'dedent')
-        const token = stack.pop()
-        if (!token || token.kind !== 'indent') {
-          return { code: 'MISMATCHED_INDENT', pos }
-        }
-      }
-    },
-  },
+  //   indent: {
+  //     rank: 3,
+  //     parse({ stack }, token) {
+  //       stack.push(token)
+  //     },
+  //   },
+  //   dedent: {
+  //     rank: 3,
+  //     parse(parser, token) {
+  //       const { stack } = parser
+  //       const { value, pos } = token
+  //       if (typeof value !== 'number') {
+  //         throw new Error(`Invalid dedent token at "${JSON.stringify(pos)}"`)
+  //       }
+  //       for (let i = 0; i < value; i++) {
+  //         reduce(parser, 'dedent')
+  //         const token = stack.pop()
+  //         if (!token || token.kind !== 'indent') {
+  //           return { code: 'mismatched_indent', pos }
+  //         }
+  //       }
+  //     },
+  //   },
   newline: {
-    rank: 2,
+    //     rank: 2,
     regexp: '\\n\\t*',
     tokenize(tokenizer, _kind, text) {
-      const { tokens, newline, pos } = tokenizer
-      const value = text.length
-      if (tokens.length > 0) {
-        if (newline) {
-          newline.value = value
-        } else {
-          tokenizer.newline = { value, pos: { ...pos } }
-        }
-      }
-      pos.line++
-      pos.col = value
-    },
-    parse(parser, token) {
-      const { stack } = parser
-      reduce(parser, token.kind)
-      stack.push(token)
+      //       const { tokens, newline, pos } = tokenizer
+      //       const value = text.length
+      //       if (tokens.length > 0) {
+      //         if (newline) {
+      //           newline.value = value
+      //         } else {
+      //           tokenizer.newline = { value, pos: { ...pos } }
+      //         }
+      //       }
+      //       pos.line++
+      //       pos.col = value
+      //     },
+      //     parse(parser, token) {
+      //       const { stack } = parser
+      //       reduce(parser, token.kind)
+      //       stack.push(token)
     },
   },
   punct: {
-    rank: 1,
-    regexp: "[!%&*+,\\-./:;<=>?@^|~]+",
+    //     rank: 1,
+    regexp: '[!%&*+\\-./:;<=>?@^|~]+',
     evaluate: (text) => text,
-    parse(parser, token) {
-      const { stack } = parser
-      reduce(parser, token.kind)
-      stack.push(token)
-    },
+    //     parse(parser, token) {
+    //       const { stack } = parser
+    //       reduce(parser, token.kind)
+    //       stack.push(token)
+    //     },
   },
   alnum: {
-    rank: 0,
+    //     rank: 0,
     regexp: '[A-Za-z_][A-Za-z0-9_]*',
     evaluate: (text) => text,
-    parse({ stack, exprs }, token, next) {
-      if (next?.kind === 'alnum') {
-        stack.push(token)
-      } else {
-        exprs.push({ token })
-      }
-    },
+    //     parse({ stack, exprs }, token, next) {
+    //       if (next?.kind === 'alnum') {
+    //         stack.push(token)
+    //       } else {
+    //         exprs.push({ token })
+    //       }
+    //     },
   },
   char: {
     regexp: "'[^']'",
@@ -122,7 +122,7 @@ const handlers: Record<string, Handler> = {
   space: {
     regexp: '[\\t ]+',
     tokenize({ pos }, _kind, text) {
-      pos.col += text.length
+      //       pos.col += text.length
     },
   },
 }
@@ -137,68 +137,69 @@ const lexer = new RegExp(
 
 function tokenizeDefault(tokenizer: Tokenizer, kind: string, text: string) {
   const { tokens, newline, indent, pos } = tokenizer
-  if (newline) {
-    let kind: string
-    let value: number | undefined = indent - newline.value
-    if (value > 0) {
-      kind = 'dedent'
-    } else if (value < 0) {
-      kind = 'indent'
-      value = undefined
-    } else {
-      kind = 'newline'
-      value = undefined
-    }
-    tokens.push({
-      kind,
-      value,
-      pos: newline.pos,
-    })
-    // inject synthetic newline token after dedent
-    if (kind == 'dedent') {
-      tokens.push({
-        kind: 'newline',
-        pos: newline.pos,
-      })
-    }
-    tokenizer.newline = undefined
-    tokenizer.indent = newline.value
-  }
+  //   if (newline) {
+  //     let kind: string
+  //     let value: number | undefined = indent - newline.value
+  //     if (value > 0) {
+  //       kind = 'dedent'
+  //     } else if (value < 0) {
+  //       kind = 'indent'
+  //       value = undefined
+  //     } else {
+  //       kind = 'newline'
+  //       value = undefined
+  //     }
+  //     tokens.push({
+  //       kind,
+  //       value,
+  //       pos: newline.pos,
+  //     })
+  //     // inject synthetic newline token after dedent
+  //     if (kind == 'dedent') {
+  //       tokens.push({
+  //         kind: 'newline',
+  //         pos: newline.pos,
+  //       })
+  //     }
+  //     tokenizer.newline = undefined
+  //     tokenizer.indent = newline.value
+  //   }
   const evaluate = handlers[kind].evaluate
   if (!evaluate) {
-    throw new Error(`Invalid handler "${kind}"`)
+    /* v8 ignore next -- @preserve */
+    throw new Error(`Invalid evaluator for "${kind}"`)
   }
   tokens.push({
     kind,
     value: evaluate(text),
     pos: { ...pos },
   })
-  pos.col += text.length
+  //   pos.col += text.length
 }
 
 function parseDefault({ exprs }: Parser, token: Token) {
   exprs.push({ token })
 }
 
-function reduce({ stack,  exprs }: Parser, kind: string) {
-  while (stack.length > 0) {
-    const token = stack.at(-1)
-    if (!token || rank(kind) <= rank(token.kind)) {
-      break
-    }
-    stack.pop()
-    const rhs = exprs.pop()
-    exprs.push({ token, lhs: exprs.pop(), rhs })
-  }
-}
+// function reduce({ stack,  exprs }: Parser, kind: string) {
+//   while (stack.length > 0) {
+//     const token = stack.at(-1)
+//     if (!token || rank(kind) <= rank(token.kind)) {
+//       break
+//     }
+//     stack.pop()
+//     const rhs = exprs.pop()
+//     exprs.push({ token, lhs: exprs.pop(), rhs })
+//   }
+// }
 
-function rank(kind: string) {
-  const rank = handlers[kind].rank
-  if (rank === undefined) {
-    throw new Error(`Invalid rank for token kind "${kind}"`)
-  }
-  return rank
-}
+// function rank(kind: string) {
+//   const rank = handlers[kind].rank
+//   if (rank === undefined) {
+//     throw new Error(`Invalid rank for token kind "${kind}"`)
+//   }
+//   return rank
+// }
 
 export default function (source: string) {
   const tokens: Array<Token> = []
@@ -209,10 +210,11 @@ export default function (source: string) {
   while (lexer.lastIndex < source.length) {
     const match = lexer.exec(source)
     if (!match) {
-      return { error: { code: 'INVALID_TOKEN', pos } }
+      return { error: { code: 'invalid_token', pos } }
     }
     if (!match.groups) {
-      throw new Error(`Invalid regex match "${JSON.stringify(match)}"`)
+      /* v8 ignore next -- @preserve */
+      throw new Error(`Invalid regex match at index ${lexer.lastIndex}`)
     }
     const groups = Object.entries(match.groups).filter(
       ([_kind, text]) => text !== undefined,
@@ -222,15 +224,15 @@ export default function (source: string) {
     tokenize(tokenizer, kind, text)
   }
 
-  // inject synthetic dedent token at end of file
-  const { newline, indent } = tokenizer
-  if (indent > 1) {
-    tokens.push({
-      kind: 'dedent',
-      value: indent - 1,
-      pos: newline ? newline.pos : tokenizer.pos,
-    })
-  }
+  // // inject synthetic dedent token at end of file
+  // const { newline, indent } = tokenizer
+  // if (indent > 1) {
+  //   tokens.push({
+  //     kind: 'dedent',
+  //     value: indent - 1,
+  //     pos: newline ? newline.pos : tokenizer.pos,
+  //   })
+  // }
 
   const stack: Array<Token> = []
   const exprs: Array<Expression> = []
@@ -240,15 +242,15 @@ export default function (source: string) {
     const token = tokens[i]
     const parse = handlers[token.kind].parse || parseDefault
     const error = parse(parser, token, tokens[i + 1])
-    if (error) {
-      return { error }
-    }
+    //   if (error) {
+    //     return { error }
+    //   }
   }
 
-  reduce(parser, 'dedent')
+  // reduce(parser, 'dedent')
 
   if (exprs.length !== 1) {
-    return { error: { code: 'INVALID_EXPR', pos } }
+    return { error: { code: 'invalid_expr', pos } }
   }
 
   return { value: exprs[0] }
