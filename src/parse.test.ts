@@ -28,6 +28,33 @@ function charBetween(min: number, max: number) {
   return integer({ min, max }).map(String.fromCharCode)
 }
 
+function atom() {
+  return oneof(alnum(), nonQuoteChar(), int())
+}
+
+function alnum() {
+  return tuple(
+    charFrom('ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz_'),
+    textFrom('ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz_0123456789'),
+  )
+    .map(([first, rest]) => `${first}${rest}`)
+    .map((value) => ({ kind: 'alnum', text: value, value }))
+}
+
+function nonQuoteChar() {
+  return charOf('binary-ascii')
+    .filter((value) => value !== "'")
+    .map((value) => ({ kind: 'char', text: `'${value}'`, value }))
+}
+
+function int() {
+  return nat().map((value) => ({ kind: 'int', text: `${value}`, value }))
+}
+
+function space() {
+  return textFrom('\t ', 1)
+}
+
 function expr(kind: string, value: string | number, line: number, col: number) {
   return {
     value: { token: { kind, value, pos: { line, col } } },
@@ -41,47 +68,36 @@ function error(code: string, line: number, col: number) {
 }
 
 describe<string, Output>((source) => parse(source), {
-  empty: test(constant(''), (value) => ({
-    given: value,
+  empty: test(constant(''), (text) => ({
+    given: text,
     expect: error('invalid_expr', 1, 1),
   })),
   newline: test(
-    textFrom('\t').map((value) => `\n${value}`),
-    (value) => ({
-      given: value,
+    textFrom('\t').map((indent) => `\n${indent}`),
+    (text) => ({
+      given: text,
       expect: error('invalid_expr', 1, 1),
     }),
   ),
-  space: test(textFrom('\t ', 1), (value) => ({
-    given: value,
-    expect: error('invalid_expr', 1, 1),
-  })),
   punct: test(textFrom('!%&*+--./:;<=>?@^|~', 1), (value) => ({
     given: value,
     expect: expr('punct', value, 1, 1),
   })),
-  alnum: test(
-    tuple(
-      charFrom('ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz_'),
-      textFrom(
-        'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz_0123456789',
-      ),
-    ).map(([first, rest]) => `${first}${rest}`),
-    (value) => ({
-      given: value,
-      expect: expr('alnum', value, 1, 1),
-    }),
-  ),
-  char: test(
-    charOf('binary-ascii').filter((value) => value !== "'"),
-    (value) => ({
-      given: `'${value}'`,
-      expect: expr('char', value, 1, 1),
-    }),
-  ),
-  int: test(nat(), (value) => ({
-    given: `${value}`,
+  alnum: test(alnum(), ({ text, value }) => ({
+    given: text,
+    expect: expr('alnum', value, 1, 1),
+  })),
+  char: test(nonQuoteChar(), ({ text, value }) => ({
+    given: text,
+    expect: expr('char', value, 1, 1),
+  })),
+  int: test(int(), ({ text, value }) => ({
+    given: text,
     expect: expr('int', value, 1, 1),
+  })),
+  space: test(space(), (text) => ({
+    given: text,
+    expect: error('invalid_expr', 1, 1),
   })),
   invalid: test(
     oneof(
@@ -93,9 +109,16 @@ describe<string, Output>((source) => parse(source), {
       ),
       charBetween(0x7f, 0x10ffff),
     ),
-    (value) => ({
-      given: value,
+    (text) => ({
+      given: text,
       expect: error('invalid_token', 1, 1),
+    }),
+  ),
+  atom_space: test(
+    tuple(atom(), space()),
+    ([{ kind, text, value }, space]) => ({
+      given: `${text}${space}`,
+      expect: expr(kind, value, 1, 1),
     }),
   ),
 })
